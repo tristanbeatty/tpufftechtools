@@ -3,12 +3,12 @@
 ### One Liner
 
 ```
-Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/tpufftechtools/main/techtools.ps1) }"
+Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/ttt/main/techtools.ps1) }"
 ```
 
 ### One Liner GUI
 ```
-Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/tpufftechtools/main/techtoolsgui.ps1) }"
+Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/ttt/main/techtoolsgui.ps1) }"
 ```
 
 ### Enable Script
