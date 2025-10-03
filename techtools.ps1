@@ -177,17 +177,21 @@ function Run-WindowsUpdateMenu {
             '3' {
                 try {
                     Ensure-PSWindowsUpdate
-                    Write-Host "Checking and installing all available updates..." -ForegroundColor Cyan
-                    $updates = Get-WindowsUpdate
+                    Write-Host "Scanning for updates..." -ForegroundColor Cyan
+                    $updates = Get-WindowsUpdate -MicrosoftUpdate -IgnoreUserInput -ErrorAction Stop
                     if ($updates) {
-                        Install-WindowsUpdate -AcceptAll -AutoReboot -Verbose
+                        Write-Host "Installing updates..." -ForegroundColor Cyan
+                        Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot -Verbose
+                        Write-Host "If a reboot is required, please restart manually." -ForegroundColor Yellow
                     } else {
-                        Write-Host "No updates available." -ForegroundColor Yellow
+                        Write-Host "No updates found." -ForegroundColor Yellow
                     }
                 } catch {
                     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
                 }
                 Pause-Return
+            }
+
             }
             '4' {
                 try {
