@@ -177,7 +177,13 @@ function Run-WindowsUpdateMenu {
             '3' {
                 try {
                     Ensure-PSWindowsUpdate
-                    Install-WindowsUpdate -AcceptAll -AutoReboot
+                    Write-Host "Checking and installing all available updates..." -ForegroundColor Cyan
+                    $updates = Get-WindowsUpdate
+                    if ($updates) {
+                        Install-WindowsUpdate -AcceptAll -AutoReboot -Verbose
+                    } else {
+                        Write-Host "No updates available." -ForegroundColor Yellow
+                    }
                 } catch {
                     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
                 }
@@ -604,4 +610,5 @@ $script:ExitRequested = $false
 $script:Menu = Build-Menu
 Run-Menu
 try { Stop-Transcript | Out-Null } catch {}
+
 
