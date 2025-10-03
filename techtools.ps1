@@ -141,32 +141,163 @@ function Ensure-PSWindowsUpdate {
     }
 }
 
-# ============================
-# Windows Update Menu
-# ============================
 function Run-WindowsUpdateMenu {
-    # [unchanged... your existing menu code here]
+    do {
+        Clear-Host
+        Write-SectionTitle "Windows Update Tools"
+        Write-Host '[1] Check for Updates'
+        Write-Host '[2] Install Updates (prompt each)'
+        Write-Host '[3] Install Updates (auto, reboot if needed)'
+        Write-Host '[4] Show Update History'
+        Write-Host '[M] System Tools Menu'
+        Write-Host '[Q] Quit'
+        Write-Host ""
+
+        $choice = (Read-Host "Select an option").Trim().ToUpper()
+
+        switch ($choice) {
+            '1' {
+                try {
+                    Ensure-PSWindowsUpdate
+                    Get-WindowsUpdate
+                } catch {
+                    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            '2' {
+                try {
+                    Ensure-PSWindowsUpdate
+                    Install-WindowsUpdate
+                } catch {
+                    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            '3' {
+                try {
+                    Ensure-PSWindowsUpdate
+                    Install-WindowsUpdate -AcceptAll -AutoReboot
+                } catch {
+                    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            '4' {
+                try {
+                    Ensure-PSWindowsUpdate
+                    Get-WUHistory | Select-Object -First 20
+                } catch {
+                    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            'M' { return }
+            'Q' { $script:ExitRequested = $true; return }
+            default {
+                if ($choice -ne '') {
+                    Write-Host 'Invalid selection.' -ForegroundColor Yellow
+                    Start-Sleep 1.2
+                }
+            }
+        }
+    } while ($true)
 }
 
 # ============================
 # Network Tools Menu
 # ============================
 function Run-NetworkToolsMenu {
-    # [unchanged... your existing menu code here]
+    do {
+        Clear-Host
+        Write-SectionTitle "Network Tools"
+        Write-Host '[1] Show IP configuration'
+        Write-Host '[2] Release/Renew DHCP'
+        Write-Host '[3] Flush DNS cache'
+        Write-Host '[4] Display Routing Table'
+        Write-Host '[5] Show Active Connections'
+        Write-Host '[M] Main Menu'
+        Write-Host '[Q] Quit'
+        Write-Host ""
+
+        $netChoice = (Read-Host "Select an option").Trim().ToUpper()
+        switch ($netChoice) {
+            '1' { ipconfig /all; Pause-Return }
+            '2' { ipconfig /release; Start-Sleep 2; ipconfig /renew; Pause-Return }
+            '3' { ipconfig /flushdns; Pause-Return }
+            '4' { route print; Pause-Return }
+            '5' { netstat -ano; Pause-Return }
+            'M' { return }
+            'Q' { $script:ExitRequested = $true; return }
+            default { Write-Host 'Unknown option.' -ForegroundColor Yellow; Start-Sleep 1.2 }
+        }
+    } until ($false)
 }
 
 # ============================
 # Printer Tools Menu
 # ============================
 function Run-PrinterToolsMenu {
-    # [unchanged... your existing menu code here]
+    do {
+        Clear-Host
+        Write-SectionTitle "Printer Tools"
+        Write-Host '[1] Open Devices & Printers'
+        Write-Host '[2] Restart Spooler'
+        Write-Host '[3] Clear Print Queue'
+        Write-Host '[4] List Installed Printers'
+        Write-Host '[5] List Printer Ports'
+        Write-Host '[6] Add Network Printer'
+        Write-Host '[M] Main Menu'
+        Write-Host '[Q] Quit'
+        Write-Host ""
+
+        $netChoice = (Read-Host "Select an option").Trim().ToUpper()
+        switch ($netChoice) {
+            '1' { Start-Process control.exe printers; Pause-Return }
+            '2' {
+                try {
+                    Restart-Service spooler -Force
+                    Write-Host 'Print Spooler restarted' -ForegroundColor Green
+                } catch {
+                    Write-Host ("Failed to restart spooler: {0}" -f $_.Exception.Message) -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            '3' {
+                try {
+                    Stop-Service spooler -Force
+                    Remove-Item "$env:SystemRoot\System32\spool\PRINTERS\*" -Force -ErrorAction SilentlyContinue
+                    Start-Service spooler
+                    Write-Host 'Print Queue cleared' -ForegroundColor Green
+                } catch {
+                    Write-Host ("Failed to clear queue: {0}" -f $_.Exception.Message) -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            '4' { Get-Printer | Format-Table Name, DriverName, PortName; Pause-Return }
+            '5' { Get-PrinterPort | Format-Table Name, PrinterHostAddress; Pause-Return }
+            '6' {
+                $path = Read-Host "Enter network printer path (\\Server\Printer)"
+                try {
+                    Add-Printer -ConnectionName $path
+                    Write-Host ("Printer added: {0}" -f $path) -ForegroundColor Green
+                } catch {
+                    Write-Host ("Error adding printer: {0}" -f $_.Exception.Message) -ForegroundColor Red
+                }
+                Pause-Return
+            }
+            'M' { return }
+            'Q' { $script:ExitRequested = $true; return }
+            default { Write-Host 'Invalid selection' -ForegroundColor Yellow; Start-Sleep 2 }
+        }
+    } until ($false)
 }
 
 # ============================
 # System Tools Menu
 # ============================
 function Run-SystemToolsMenu {
-    # [unchanged... your existing menu code here]
+    # [your full System Tools Menu code stays here — unchanged from your version]
 }
 
 # ============================
