@@ -191,8 +191,6 @@ function Run-WindowsUpdateMenu {
                 }
                 Pause-Return
             }
-
-            }
             '4' {
                 try {
                     Ensure-PSWindowsUpdate
