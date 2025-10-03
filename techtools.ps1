@@ -33,9 +33,17 @@ function Ensure-Admin {
 # ============================
 function Initialize {
     # Fallback if running in-memory (PSCommandPath is null)
-    $cmdPath = $PSCommandPath
-    if (-not $cmdPath) { $cmdPath = $MyInvocation.MyCommand.Path }
-    if (-not $cmdPath) { $cmdPath = (Get-Location).Path }
+    $cmdPath = $null
+    if ($PSCommandPath) {
+        $cmdPath = $PSCommandPath
+    } elseif ($MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
+        $cmdPath = $MyInvocation.MyCommand.Path
+    }
+
+    if (-not $cmdPath) {
+        # Final fallback: current working directory
+        $cmdPath = (Get-Location).Path
+    }
 
     $script:BaseDir    = Split-Path -Parent $cmdPath
     $script:LogsDir    = Join-Path $BaseDir 'Logs'
@@ -48,6 +56,7 @@ function Initialize {
 
     $Host.UI.RawUI.WindowTitle = "TPuff Tech Tools - $env:COMPUTERNAME"
 }
+
 
 # ============================
 # Section Title Function
@@ -149,3 +158,4 @@ $script:ExitRequested = $false
 $script:Menu = Build-Menu
 Run-Menu
 try { Stop-Transcript | Out-Null } catch {}
+
