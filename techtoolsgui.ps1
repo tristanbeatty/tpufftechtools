@@ -1,215 +1,19 @@
 # ============================
-# Load .NET WinForms
+# TPuff Tech Tools - WinForms GUI
 # ============================
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # ============================
-# Pause Helper
+# Helper: Panel Switching
 # ============================
-function Pause-Return { [System.Windows.Forms.MessageBox]::Show("Press OK to continue.","TPuff Tech Tools") }
-
-# ============================
-# Network Tools
-# ============================
-function Run-NetworkTools {
-    $menu = New-Object System.Windows.Forms.Form
-    $menu.Text = "Network Tools"
-    $menu.Size = '500,300'
-    $menu.StartPosition = "CenterScreen"
-
-    $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "Show IP Configuration"
-    $btn1.Size = '200,40'
-    $btn1.Location = '30,30'
-    $btn1.Add_Click({ ipconfig /all | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn1)
-
-    $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "Release/Renew DHCP"
-    $btn2.Size = '200,40'
-    $btn2.Location = '30,80'
-    $btn2.Add_Click({ ipconfig /release; Start-Sleep 2; ipconfig /renew | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn2)
-
-    $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "Flush DNS Cache"
-    $btn3.Size = '200,40'
-    $btn3.Location = '30,130'
-    $btn3.Add_Click({ ipconfig /flushdns | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn3)
-
-    $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "Display Routing Table"
-    $btn4.Size = '200,40'
-    $btn4.Location = '30,180'
-    $btn4.Add_Click({ route print | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn4)
-
-    $btn5 = New-Object System.Windows.Forms.Button
-    $btn5.Text = "Show Active Connections"
-    $btn5.Size = '200,40'
-    $btn5.Location = '30,230'
-    $btn5.Add_Click({ netstat -ano | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn5)
-
-    $menu.ShowDialog()
-}
-
-# ============================
-# Printer Tools
-# ============================
-function Run-PrinterTools {
-    $menu = New-Object System.Windows.Forms.Form
-    $menu.Text = "Printer Tools"
-    $menu.Size = '500,350'
-    $menu.StartPosition = "CenterScreen"
-
-    $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "Open Devices & Printers"
-    $btn1.Size = '250,40'
-    $btn1.Location = '30,30'
-    $btn1.Add_Click({ Start-Process control.exe printers })
-    $menu.Controls.Add($btn1)
-
-    $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "Restart Spooler"
-    $btn2.Size = '250,40'
-    $btn2.Location = '30,80'
-    $btn2.Add_Click({
-        try { Restart-Service spooler -Force; [System.Windows.Forms.MessageBox]::Show("Spooler restarted.") }
-        catch { [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)") }
-    })
-    $menu.Controls.Add($btn2)
-
-    $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "Clear Print Queue"
-    $btn3.Size = '250,40'
-    $btn3.Location = '30,130'
-    $btn3.Add_Click({
-        try {
-            Stop-Service spooler -Force
-            Remove-Item "$env:SystemRoot\System32\spool\PRINTERS\*" -Force -ErrorAction SilentlyContinue
-            Start-Service spooler
-            [System.Windows.Forms.MessageBox]::Show("Print queue cleared.")
-        } catch { [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)") }
-    })
-    $menu.Controls.Add($btn3)
-
-    $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "List Printers"
-    $btn4.Size = '250,40'
-    $btn4.Location = '30,180'
-    $btn4.Add_Click({ Get-Printer | Format-Table | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn4)
-
-    $btn5 = New-Object System.Windows.Forms.Button
-    $btn5.Text = "List Printer Ports"
-    $btn5.Size = '250,40'
-    $btn5.Location = '30,230'
-    $btn5.Add_Click({ Get-PrinterPort | Format-Table | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn5)
-
-    $btn6 = New-Object System.Windows.Forms.Button
-    $btn6.Text = "Add Network Printer"
-    $btn6.Size = '250,40'
-    $btn6.Location = '30,280'
-    $btn6.Add_Click({
-        $path = [System.Windows.Forms.InputBox]::Show("Enter printer path (\\Server\Printer)","Add Printer","")
-        if ($path) {
-            try { Add-Printer -ConnectionName $path; [System.Windows.Forms.MessageBox]::Show("Added $path") }
-            catch { [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)") }
-        }
-    })
-    $menu.Controls.Add($btn6)
-
-    $menu.ShowDialog()
-}
-
-# ============================
-# System Tools
-# ============================
-function Run-SystemTools {
-    $menu = New-Object System.Windows.Forms.Form
-    $menu.Text = "System Tools"
-    $menu.Size = '500,350'
-    $menu.StartPosition = "CenterScreen"
-
-    $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "Show System Info"
-    $btn1.Size = '250,40'
-    $btn1.Location = '30,30'
-    $btn1.Add_Click({
-        Get-ComputerInfo | Select-Object CsName,OsName,OsVersion,OsBuildNumber | Out-Host
-        Pause-Return
-    })
-    $menu.Controls.Add($btn1)
-
-    $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "List Local Users"
-    $btn2.Size = '250,40'
-    $btn2.Location = '30,80'
-    $btn2.Add_Click({ Get-LocalUser | Format-Table Name,Enabled,LastLogon | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn2)
-
-    $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "Change Computer Name"
-    $btn3.Size = '250,40'
-    $btn3.Location = '30,130'
-    $btn3.Add_Click({
-        $new = [System.Windows.Forms.InputBox]::Show("Enter new computer name","Rename PC","")
-        if ($new) {
-            try { Rename-Computer -NewName $new -Force; [System.Windows.Forms.MessageBox]::Show("Renamed. Restart to apply.") }
-            catch { [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)") }
-        }
-    })
-    $menu.Controls.Add($btn3)
-
-    $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "Windows Update"
-    $btn4.Size = '250,40'
-    $btn4.Location = '30,180'
-    $btn4.Add_Click({ Run-WindowsUpdate })
-    $menu.Controls.Add($btn4)
-
-    $menu.ShowDialog()
-}
-
-# ============================
-# Windows Update (simplified GUI)
-# ============================
-function Run-WindowsUpdate {
-    try {
-        Import-Module PSWindowsUpdate -ErrorAction Stop
-    } catch { [System.Windows.Forms.MessageBox]::Show("PSWindowsUpdate not installed.") ; return }
-
-    $menu = New-Object System.Windows.Forms.Form
-    $menu.Text = "Windows Update"
-    $menu.Size = '400,250'
-    $menu.StartPosition = "CenterScreen"
-
-    $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "Check Updates"
-    $btn1.Size = '150,40'
-    $btn1.Location = '30,30'
-    $btn1.Add_Click({ Get-WindowsUpdate | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn1)
-
-    $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "Install (Prompt)"
-    $btn2.Size = '150,40'
-    $btn2.Location = '30,80'
-    $btn2.Add_Click({ Install-WindowsUpdate -Verbose | Out-Host; Pause-Return })
-    $menu.Controls.Add($btn2)
-
-    $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "Install (Auto)"
-    $btn3.Size = '150,40'
-    $btn3.Location = '30,130'
-    $btn3.Add_Click({ Install-WindowsUpdate -AcceptAll -AutoReboot -Verbose | Out-Host })
-    $menu.Controls.Add($btn3)
-
-    $menu.ShowDialog()
+function Show-Panel {
+    param([System.Windows.Forms.Form]$form, [System.Windows.Forms.Panel]$panel)
+    foreach ($c in $form.Controls) {
+        if ($c -is [System.Windows.Forms.Panel]) { $c.Visible = $false }
+    }
+    $panel.Visible = $true
 }
 
 # ============================
@@ -217,44 +21,255 @@ function Run-WindowsUpdate {
 # ============================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "TPuff Tech Tools"
-$form.Size = '400,400'
+$form.Size = '700,500'
 $form.StartPosition = "CenterScreen"
+
+# ============================
+# MAIN MENU PANEL
+# ============================
+$panelMain = New-Object System.Windows.Forms.Panel
+$panelMain.Dock = 'Fill'
 
 $btnNet = New-Object System.Windows.Forms.Button
 $btnNet.Text = "Network Tools"
-$btnNet.Size = '150,40'
+$btnNet.Size = '200,50'
 $btnNet.Location = '30,30'
-$btnNet.Add_Click({ Run-NetworkTools })
-$form.Controls.Add($btnNet)
+$btnNet.Add_Click({ Show-Panel $form $panelNet })
+$panelMain.Controls.Add($btnNet)
 
 $btnPrint = New-Object System.Windows.Forms.Button
 $btnPrint.Text = "Printer Tools"
-$btnPrint.Size = '150,40'
-$btnPrint.Location = '30,80'
-$btnPrint.Add_Click({ Run-PrinterTools })
-$form.Controls.Add($btnPrint)
+$btnPrint.Size = '200,50'
+$btnPrint.Location = '30,100'
+$btnPrint.Add_Click({ Show-Panel $form $panelPrint })
+$panelMain.Controls.Add($btnPrint)
 
 $btnSys = New-Object System.Windows.Forms.Button
 $btnSys.Text = "System Tools"
-$btnSys.Size = '150,40'
-$btnSys.Location = '30,130'
-$btnSys.Add_Click({ Run-SystemTools })
-$form.Controls.Add($btnSys)
+$btnSys.Size = '200,50'
+$btnSys.Location = '30,170'
+$btnSys.Add_Click({ Show-Panel $form $panelSys })
+$panelMain.Controls.Add($btnSys)
 
 $btnUpdate = New-Object System.Windows.Forms.Button
 $btnUpdate.Text = "Windows Update"
-$btnUpdate.Size = '150,40'
-$btnUpdate.Location = '30,180'
-$btnUpdate.Add_Click({ Run-WindowsUpdate })
-$form.Controls.Add($btnUpdate)
+$btnUpdate.Size = '200,50'
+$btnUpdate.Location = '30,240'
+$btnUpdate.Add_Click({ Show-Panel $form $panelUpdate })
+$panelMain.Controls.Add($btnUpdate)
 
 $btnExit = New-Object System.Windows.Forms.Button
 $btnExit.Text = "Exit"
-$btnExit.Size = '150,40'
-$btnExit.Location = '30,230'
+$btnExit.Size = '200,50'
+$btnExit.Location = '30,310'
 $btnExit.Add_Click({ $form.Close() })
-$form.Controls.Add($btnExit)
+$panelMain.Controls.Add($btnExit)
 
+# ============================
+# NETWORK TOOLS PANEL
+# ============================
+$panelNet = New-Object System.Windows.Forms.Panel
+$panelNet.Dock = 'Fill'
+$panelNet.Visible = $false
+
+$lblNet = New-Object System.Windows.Forms.Label
+$lblNet.Text = "Network Tools"
+$lblNet.Font = 'Segoe UI,12,style=Bold'
+$lblNet.Location = '30,10'
+$panelNet.Controls.Add($lblNet)
+
+$btnIP = New-Object System.Windows.Forms.Button
+$btnIP.Text = "Show IP Config"
+$btnIP.Size = '200,40'
+$btnIP.Location = '30,50'
+$btnIP.Add_Click({ ipconfig /all | Out-Host })
+$panelNet.Controls.Add($btnIP)
+
+$btnDHCP = New-Object System.Windows.Forms.Button
+$btnDHCP.Text = "Release/Renew DHCP"
+$btnDHCP.Size = '200,40'
+$btnDHCP.Location = '30,100'
+$btnDHCP.Add_Click({ ipconfig /release; Start-Sleep 2; ipconfig /renew | Out-Host })
+$panelNet.Controls.Add($btnDHCP)
+
+$btnDNS = New-Object System.Windows.Forms.Button
+$btnDNS.Text = "Flush DNS Cache"
+$btnDNS.Size = '200,40'
+$btnDNS.Location = '30,150'
+$btnDNS.Add_Click({ ipconfig /flushdns | Out-Host })
+$panelNet.Controls.Add($btnDNS)
+
+$btnRoutes = New-Object System.Windows.Forms.Button
+$btnRoutes.Text = "Routing Table"
+$btnRoutes.Size = '200,40'
+$btnRoutes.Location = '30,200'
+$btnRoutes.Add_Click({ route print | Out-Host })
+$panelNet.Controls.Add($btnRoutes)
+
+$btnConnections = New-Object System.Windows.Forms.Button
+$btnConnections.Text = "Active Connections"
+$btnConnections.Size = '200,40'
+$btnConnections.Location = '30,250'
+$btnConnections.Add_Click({ netstat -ano | Out-Host })
+$panelNet.Controls.Add($btnConnections)
+
+$btnNetBack = New-Object System.Windows.Forms.Button
+$btnNetBack.Text = "Back"
+$btnNetBack.Size = '200,40'
+$btnNetBack.Location = '30,300'
+$btnNetBack.Add_Click({ Show-Panel $form $panelMain })
+$panelNet.Controls.Add($btnNetBack)
+
+# ============================
+# PRINTER TOOLS PANEL
+# ============================
+$panelPrint = New-Object System.Windows.Forms.Panel
+$panelPrint.Dock = 'Fill'
+$panelPrint.Visible = $false
+
+$lblPrint = New-Object System.Windows.Forms.Label
+$lblPrint.Text = "Printer Tools"
+$lblPrint.Font = 'Segoe UI,12,style=Bold'
+$lblPrint.Location = '30,10'
+$panelPrint.Controls.Add($lblPrint)
+
+$btnPrinters = New-Object System.Windows.Forms.Button
+$btnPrinters.Text = "List Printers"
+$btnPrinters.Size = '200,40'
+$btnPrinters.Location = '30,50'
+$btnPrinters.Add_Click({ Get-Printer | Format-Table | Out-Host })
+$panelPrint.Controls.Add($btnPrinters)
+
+$btnPorts = New-Object System.Windows.Forms.Button
+$btnPorts.Text = "List Printer Ports"
+$btnPorts.Size = '200,40'
+$btnPorts.Location = '30,100'
+$btnPorts.Add_Click({ Get-PrinterPort | Format-Table | Out-Host })
+$panelPrint.Controls.Add($btnPorts)
+
+$btnSpooler = New-Object System.Windows.Forms.Button
+$btnSpooler.Text = "Restart Spooler"
+$btnSpooler.Size = '200,40'
+$btnSpooler.Location = '30,150'
+$btnSpooler.Add_Click({ Restart-Service spooler -Force })
+$panelPrint.Controls.Add($btnSpooler)
+
+$btnClearQueue = New-Object System.Windows.Forms.Button
+$btnClearQueue.Text = "Clear Print Queue"
+$btnClearQueue.Size = '200,40'
+$btnClearQueue.Location = '30,200'
+$btnClearQueue.Add_Click({
+    Stop-Service spooler -Force
+    Remove-Item "$env:SystemRoot\System32\spool\PRINTERS\*" -Force -ErrorAction SilentlyContinue
+    Start-Service spooler
+})
+$panelPrint.Controls.Add($btnClearQueue)
+
+$btnAddPrinter = New-Object System.Windows.Forms.Button
+$btnAddPrinter.Text = "Add Network Printer"
+$btnAddPrinter.Size = '200,40'
+$btnAddPrinter.Location = '30,250'
+$btnAddPrinter.Add_Click({
+    $path = [System.Windows.Forms.MessageBox]::Show("Use Add-Printer manually in shell.","Info")
+})
+$panelPrint.Controls.Add($btnAddPrinter)
+
+$btnPrintBack = New-Object System.Windows.Forms.Button
+$btnPrintBack.Text = "Back"
+$btnPrintBack.Size = '200,40'
+$btnPrintBack.Location = '30,300'
+$btnPrintBack.Add_Click({ Show-Panel $form $panelMain })
+$panelPrint.Controls.Add($btnPrintBack)
+
+# ============================
+# SYSTEM TOOLS PANEL
+# ============================
+$panelSys = New-Object System.Windows.Forms.Panel
+$panelSys.Dock = 'Fill'
+$panelSys.Visible = $false
+
+$lblSys = New-Object System.Windows.Forms.Label
+$lblSys.Text = "System Tools"
+$lblSys.Font = 'Segoe UI,12,style=Bold'
+$lblSys.Location = '30,10'
+$panelSys.Controls.Add($lblSys)
+
+$btnSysInfo = New-Object System.Windows.Forms.Button
+$btnSysInfo.Text = "Show System Info"
+$btnSysInfo.Size = '200,40'
+$btnSysInfo.Location = '30,50'
+$btnSysInfo.Add_Click({ Get-ComputerInfo | Select CsName,OsName,OsVersion,OsBuildNumber | Out-Host })
+$panelSys.Controls.Add($btnSysInfo)
+
+$btnUsers = New-Object System.Windows.Forms.Button
+$btnUsers.Text = "List Local Users"
+$btnUsers.Size = '200,40'
+$btnUsers.Location = '30,100'
+$btnUsers.Add_Click({ Get-LocalUser | Format-Table Name,Enabled,LastLogon | Out-Host })
+$panelSys.Controls.Add($btnUsers)
+
+$btnRename = New-Object System.Windows.Forms.Button
+$btnRename.Text = "Change Computer Name"
+$btnRename.Size = '200,40'
+$btnRename.Location = '30,150'
+$btnRename.Add_Click({
+    $new = [System.Windows.Forms.MessageBox]::Show("Use Rename-Computer in shell.","Info")
+})
+$panelSys.Controls.Add($btnRename)
+
+$btnSysBack = New-Object System.Windows.Forms.Button
+$btnSysBack.Text = "Back"
+$btnSysBack.Size = '200,40'
+$btnSysBack.Location = '30,300'
+$btnSysBack.Add_Click({ Show-Panel $form $panelMain })
+$panelSys.Controls.Add($btnSysBack)
+
+# ============================
+# WINDOWS UPDATE PANEL
+# ============================
+$panelUpdate = New-Object System.Windows.Forms.Panel
+$panelUpdate.Dock = 'Fill'
+$panelUpdate.Visible = $false
+
+$lblUpdate = New-Object System.Windows.Forms.Label
+$lblUpdate.Text = "Windows Update"
+$lblUpdate.Font = 'Segoe UI,12,style=Bold'
+$lblUpdate.Location = '30,10'
+$panelUpdate.Controls.Add($lblUpdate)
+
+$btnWUCheck = New-Object System.Windows.Forms.Button
+$btnWUCheck.Text = "Check Updates"
+$btnWUCheck.Size = '200,40'
+$btnWUCheck.Location = '30,50'
+$btnWUCheck.Add_Click({
+    try { Import-Module PSWindowsUpdate -ErrorAction Stop; Get-WindowsUpdate | Out-Host }
+    catch { [System.Windows.Forms.MessageBox]::Show("PSWindowsUpdate not available.") }
+})
+$panelUpdate.Controls.Add($btnWUCheck)
+
+$btnWUInstall = New-Object System.Windows.Forms.Button
+$btnWUInstall.Text = "Install Updates"
+$btnWUInstall.Size = '200,40'
+$btnWUInstall.Location = '30,100'
+$btnWUInstall.Add_Click({
+    try { Import-Module PSWindowsUpdate -ErrorAction Stop; Install-WindowsUpdate -AcceptAll -Verbose }
+    catch { [System.Windows.Forms.MessageBox]::Show("PSWindowsUpdate not available.") }
+})
+$panelUpdate.Controls.Add($btnWUInstall)
+
+$btnWUBack = New-Object System.Windows.Forms.Button
+$btnWUBack.Text = "Back"
+$btnWUBack.Size = '200,40'
+$btnWUBack.Location = '30,300'
+$btnWUBack.Add_Click({ Show-Panel $form $panelMain })
+$panelUpdate.Controls.Add($btnWUBack)
+
+# ============================
+# Add Panels to Form
+# ============================
+$form.Controls.AddRange(@($panelMain,$panelNet,$panelPrint,$panelSys,$panelUpdate))
+
+# Start with Main Panel
 [System.Windows.Forms.Application]::EnableVisualStyles()
-$form.Topmost = $true
+Show-Panel $form $panelMain
 $form.ShowDialog()
