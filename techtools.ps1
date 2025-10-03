@@ -16,7 +16,9 @@ function Ensure-Admin {
 
         # Fallback path handling for in-memory execution
         $cmdPath = $PSCommandPath
-        if (-not $cmdPath) { $cmdPath = $MyInvocation.MyCommand.Path }
+        if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
+            $cmdPath = $MyInvocation.MyCommand.Path
+        }
         if (-not $cmdPath) { $cmdPath = (Get-Location).Path }
 
         $args = "-NoProfile -ExecutionPolicy Bypass -File `"`"$cmdPath`"`""
@@ -33,17 +35,11 @@ function Ensure-Admin {
 # ============================
 function Initialize {
     # Fallback if running in-memory (PSCommandPath is null)
-    $cmdPath = $null
-    if ($PSCommandPath) {
-        $cmdPath = $PSCommandPath
-    } elseif ($MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
+    $cmdPath = $PSCommandPath
+    if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
         $cmdPath = $MyInvocation.MyCommand.Path
     }
-
-    if (-not $cmdPath) {
-        # Final fallback: current working directory
-        $cmdPath = (Get-Location).Path
-    }
+    if (-not $cmdPath) { $cmdPath = (Get-Location).Path }
 
     $script:BaseDir    = Split-Path -Parent $cmdPath
     $script:LogsDir    = Join-Path $BaseDir 'Logs'
@@ -56,7 +52,6 @@ function Initialize {
 
     $Host.UI.RawUI.WindowTitle = "TPuff Tech Tools - $env:COMPUTERNAME"
 }
-
 
 # ============================
 # Section Title Function
@@ -146,8 +141,81 @@ function Ensure-PSWindowsUpdate {
     }
 }
 
-# ... [Windows Update Menu, Network Tools Menu, Printer Tools Menu, System Tools Menu]
-# ... [Build-Menu, Show-Menu, Run-Menu remain unchanged from your version]
+# ============================
+# Windows Update Menu
+# ============================
+function Run-WindowsUpdateMenu {
+    # [unchanged... your existing menu code here]
+}
+
+# ============================
+# Network Tools Menu
+# ============================
+function Run-NetworkToolsMenu {
+    # [unchanged... your existing menu code here]
+}
+
+# ============================
+# Printer Tools Menu
+# ============================
+function Run-PrinterToolsMenu {
+    # [unchanged... your existing menu code here]
+}
+
+# ============================
+# System Tools Menu
+# ============================
+function Run-SystemToolsMenu {
+    # [unchanged... your existing menu code here]
+}
+
+# ============================
+# Build Main Menu Items
+# ============================
+function Build-Menu {
+    @(
+        @{ Key='1'; Name='Network Tools';               Action = { Run-NetworkToolsMenu } }
+        @{ Key='2'; Name='Printer Tools';               Action = { Run-PrinterToolsMenu } }
+        @{ Key='3'; Name='System Tools';                Action = { Run-SystemToolsMenu } }
+        @{ Key='S'; Name='Run a script from .\Scripts'; Action = { Invoke-ScriptPicker } }
+        @{ Key='Q'; Name='Quit';                        Action = { $script:ExitRequested = $true } }
+    )
+}
+
+# ============================
+# Show Main Menu
+# ============================
+function Show-Menu {
+    Show-Header
+    foreach ($item in $script:Menu) {
+        Write-Host ("[{0}] {1}" -f $item.Key, $item.Name)
+    }
+    Write-Host ""
+}
+
+# ============================
+# Run Menu Interaction Loop
+# ============================
+function Run-Menu {
+    do {
+        Show-Menu
+        $choice = (Read-Host "Select option").Trim().ToUpper()
+        $match = $script:Menu | Where-Object { $_.Key -eq $choice }
+        if ($null -ne $match) {
+            try { & $match.Action }
+            catch {
+                Write-Host ("Error: {0}" -f $_.Exception.Message) -ForegroundColor Red
+                $_ | Format-List * -Force
+                Pause-Return
+            }
+        } else {
+            if ($choice -ne '') {
+                Write-Host 'Unknown option.' -ForegroundColor Yellow
+                Start-Sleep 1.2
+            }
+        }
+    } until ($script:ExitRequested)
+}
 
 # ============================
 # Entry Point / Main Loop
@@ -158,4 +226,3 @@ $script:ExitRequested = $false
 $script:Menu = Build-Menu
 Run-Menu
 try { Stop-Transcript | Out-Null } catch {}
-
