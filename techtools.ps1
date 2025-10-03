@@ -14,14 +14,14 @@ function Ensure-Admin {
     if (-not $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Host 'Restarting as Administrator...' -ForegroundColor Yellow
 
-        # Resolve script path or write temp copy if running in-memory
+        # Fallback path handling for in-memory execution
         $cmdPath = $PSCommandPath
-        if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Definition -ErrorAction SilentlyContinue)) {
-            $cmdPath = $MyInvocation.MyCommand.Definition
+        if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
+            $cmdPath = $MyInvocation.MyCommand.Path
         }
-        if (-not $cmdPath -or -not (Test-Path $cmdPath)) {
-            $cmdPath = Join-Path $env:TEMP "techtools_tmp.ps1"
-            Get-Content -Raw $MyInvocation.MyCommand.Definition | Out-File $cmdPath -Force
+        if (-not $cmdPath) {
+            Write-Host "Cannot determine script path when running in-memory. Relaunch manually if needed." -ForegroundColor Red
+            exit 1
         }
 
         $args = "-NoProfile -ExecutionPolicy Bypass -File `"`"$cmdPath`"`""
@@ -37,14 +37,12 @@ function Ensure-Admin {
 # Initialization & Paths
 # ============================
 function Initialize {
-    # Resolve script path or fallback to temp folder
+    # Fallback if running in-memory (PSCommandPath is null)
     $cmdPath = $PSCommandPath
-    if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Definition -ErrorAction SilentlyContinue)) {
-        $cmdPath = $MyInvocation.MyCommand.Definition
+    if (-not $cmdPath -and $MyInvocation.MyCommand -and ($MyInvocation.MyCommand | Get-Member -Name Path -ErrorAction SilentlyContinue)) {
+        $cmdPath = $MyInvocation.MyCommand.Path
     }
-    if (-not $cmdPath -or -not (Test-Path $cmdPath)) {
-        $cmdPath = Join-Path $env:TEMP "techtools_tmp.ps1"
-    }
+    if (-not $cmdPath) { $cmdPath = (Get-Location).Path }
 
     $script:BaseDir    = Split-Path -Parent $cmdPath
     $script:LogsDir    = Join-Path $BaseDir 'Logs'
@@ -134,11 +132,11 @@ function Pause-Return { [void](Read-Host "Press Enter to return to menu") }
 # ============================
 function Ensure-PSWindowsUpdate {
     try {
-        if (-not (Get-Module -Name PSWindowsUpdate -ListAvailable)) {
+        if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
             if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction Stop | Out-Null
             }
-            Install-Module -Name PSWindowsUpdate -Scope AllUsers -Force -ErrorAction Stop
+            Install-Module -Name PSWindowsUpdate -Force -Scope AllUsers -ErrorAction Stop
         }
         Import-Module PSWindowsUpdate -Force -ErrorAction Stop
     } catch {
@@ -164,7 +162,7 @@ function Run-WindowsUpdateMenu {
             '1' {
                 try {
                     Ensure-PSWindowsUpdate
-                    Get-WindowsUpdate -MicrosoftUpdate
+                    Get-WindowsUpdate -Verbose
                 } catch {
                     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
                 }
@@ -173,7 +171,7 @@ function Run-WindowsUpdateMenu {
             '2' {
                 try {
                     Ensure-PSWindowsUpdate
-                    Install-WindowsUpdate
+                    Install-WindowsUpdate -Verbose
                 } catch {
                     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
                 }
@@ -183,17 +181,12 @@ function Run-WindowsUpdateMenu {
                 try {
                     Ensure-PSWindowsUpdate
                     Write-Host "Scanning for updates..." -ForegroundColor Cyan
-                    $updates = Get-WindowsUpdate -MicrosoftUpdate -IgnoreUserInput -ErrorAction SilentlyContinue
+                    $updates = Get-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreUserInput -ErrorAction Stop
                     if ($updates) {
-                        Write-Host "Installing updates via PSWindowsUpdate..." -ForegroundColor Cyan
-                        Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot -Verbose
-                        Write-Host "If a reboot is required, please restart manually." -ForegroundColor Yellow
+                        Write-Host "Installing updates..." -ForegroundColor Cyan
+                        Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
                     } else {
-                        Write-Host "No updates via PSWindowsUpdate. Trying UsoClient..." -ForegroundColor Yellow
-                        Start-Process -FilePath "UsoClient.exe" -ArgumentList "StartScan" -Wait
-                        Start-Process -FilePath "UsoClient.exe" -ArgumentList "StartDownload" -Wait
-                        Start-Process -FilePath "UsoClient.exe" -ArgumentList "StartInstall" -Wait
-                        Write-Host "Triggered update scan/install with UsoClient." -ForegroundColor Green
+                        Write-Host "No updates found." -ForegroundColor Yellow
                     }
                 } catch {
                     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
@@ -219,6 +212,44 @@ function Run-WindowsUpdateMenu {
             }
         }
     } while ($true)
+}
+
+# ============================
+# Dell Update Helpers
+# ============================
+function Ensure-DellCommandUpdate {
+    $dcuPath = "${env:ProgramFiles(x86)}\Dell\CommandUpdate\dcu-cli.exe"
+    if (-not (Test-Path $dcuPath)) {
+        Write-Host "Dell Command | Update not found. Downloading installer..." -ForegroundColor Yellow
+        $url = "https://downloads.dell.com/FOLDER09891821M/1/Dell-Command-Update-Windows-Universal-Application_5F7N4_WIN_5.1.0_A00.EXE"
+        $temp = Join-Path $env:TEMP "DellCommandUpdate.exe"
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $temp -UseBasicParsing -ErrorAction Stop
+            Write-Host "Installing Dell Command | Update..." -ForegroundColor Cyan
+            Start-Process -FilePath $temp -ArgumentList "/quiet" -Wait
+            Remove-Item $temp -Force
+        } catch {
+            throw "Failed to download or install Dell Command | Update: $($_.Exception.Message)"
+        }
+    }
+    return $dcuPath
+}
+
+function Run-DellUpdate {
+    try {
+        $dcu = Ensure-DellCommandUpdate
+
+        Write-Host "Scanning for Dell updates..." -ForegroundColor Cyan
+        & $dcu /scan
+
+        Write-Host "Installing available updates..." -ForegroundColor Cyan
+        & $dcu /applyUpdates -reboot=enable -autoSuspendBitLocker=enable
+
+        Write-Host "Dell updates process completed. If a reboot is required, the system will restart automatically." -ForegroundColor Yellow
+    } catch {
+        Write-Host "Error during Dell update: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    Pause-Return
 }
 
 # ============================
@@ -326,6 +357,7 @@ function Run-SystemToolsMenu {
         Write-Host '[7] Deactivate Local User'
         Write-Host '[8] Change User Password'
         Write-Host '[9] Windows Update Tools'
+        Write-Host '[10] Dell Updates'
         Write-Host '[M] Main Menu'
         Write-Host '[Q] Quit'
         Write-Host ""
@@ -333,26 +365,23 @@ function Run-SystemToolsMenu {
         $choice = (Read-Host "Select an option").Trim().ToUpper()
 
         switch ($choice) {
-
             '1' {
                 try {
                     Write-Host "Computer" -ForegroundColor Cyan
-                    Get-CimInstance Win32_OperatingSystem | 
-                        Select-Object CSName, Caption, Version, BuildNumber, Manufacturer, LastBootUpTime |
-                        Format-List
-
-                    Write-Host "`nDisks" -ForegroundColor Cyan
+                    Get-CimInstance Win32_ComputerSystem |
+                        Select-Object Name, Manufacturer, Model, TotalPhysicalMemory
+                    Get-CimInstance Win32_OperatingSystem |
+                        Select-Object Caption, Version, BuildNumber, LastBootUpTime
                     Get-Volume |
                         Select-Object DriveLetter,FileSystemLabel,FileSystem,
-                            @{n='Free(GB)';e={[math]::Round($_.SizeRemaining/1GB,1)}},
-                            @{n='Size(GB)';e={[math]::Round($_.Size/1GB,1)}} |
+                                      @{n='Free(GB)';e={[math]::Round($_.SizeRemaining/1GB,1)}},
+                                      @{n='Size(GB)';e={[math]::Round($_.Size/1GB,1)}} |
                         Sort-Object DriveLetter | Format-Table -Auto
                 } catch {
                     Write-Host ("Error: {0}" -f $_.Exception.Message) -ForegroundColor Red
                 }
                 Pause-Return
             }
-
             '2' {
                 $newName = (Read-Host "Enter new computer name").Trim()
                 if ([string]::IsNullOrWhiteSpace($newName)) {
@@ -370,7 +399,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '3' {
                 try {
                     Get-LocalUser |
@@ -381,7 +409,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '4' {
                 $user = (Read-Host "Enter local username to remove").Trim()
                 if ([string]::IsNullOrWhiteSpace($user)) {
@@ -398,8 +425,8 @@ function Run-SystemToolsMenu {
                     } elseif ($lu.Name -eq $env:USERNAME) {
                         Write-Host "Refusing to remove the currently logged-in user." -ForegroundColor Yellow
                     } else {
-                        $conf = Read-Host "Type DELETE to confirm removing '$user'"
-                        if ($conf.ToUpper() -eq 'DELETE') {
+                        $conf = (Read-Host "Type DELETE to confirm removing '$user'").ToUpper()
+                        if ($conf -eq 'DELETE') {
                             Remove-LocalUser -Name $user
                             Write-Host ("User '{0}' removed." -f $user) -ForegroundColor Green
                         } else {
@@ -411,7 +438,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '5' {
                 $name = (Read-Host "Enter new username").Trim()
                 if ([string]::IsNullOrWhiteSpace($name)) {
@@ -436,10 +462,8 @@ function Run-SystemToolsMenu {
 
                     $grp = (Read-Host "(A)dd to Administrators, (U)sers, or (N)o group change [A/U/N]").Trim().ToUpper()
                     switch ($grp) {
-                        'A' { Add-LocalGroupMember -Group 'Administrators' -Member $name -ErrorAction Stop
-                              Write-Host "Added to Administrators." -ForegroundColor Green }
-                        'U' { Add-LocalGroupMember -Group 'Users' -Member $name -ErrorAction Stop
-                              Write-Host "Added to Users." -ForegroundColor Green }
+                        'A' { Add-LocalGroupMember -Group 'Administrators' -Member $name -ErrorAction Stop; Write-Host "Added to Administrators." -ForegroundColor Green }
+                        'U' { Add-LocalGroupMember -Group 'Users' -Member $name -ErrorAction Stop; Write-Host "Added to Users." -ForegroundColor Green }
                         default { Write-Host 'No group changes.' -ForegroundColor Yellow }
                     }
 
@@ -449,7 +473,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '6' {
                 $user = (Read-Host "Enter local username to activate").Trim()
                 if ([string]::IsNullOrWhiteSpace($user)) {
@@ -464,8 +487,8 @@ function Run-SystemToolsMenu {
                     } elseif ($lu.Enabled) {
                         Write-Host ("User '{0}' is already active." -f $user) -ForegroundColor Yellow
                     } else {
-                        $conf = Read-Host "Type ENABLE to confirm activating '$user'"
-                        if ($conf.ToUpper() -eq 'ENABLE') {
+                        $conf = (Read-Host "Type ENABLE to confirm activating '$user'").ToUpper()
+                        if ($conf -eq 'ENABLE') {
                             Enable-LocalUser -Name $user -ErrorAction Stop
                             Write-Host ("User '{0}' activated." -f $user) -ForegroundColor Green
                         } else {
@@ -477,7 +500,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '7' {
                 $user = (Read-Host "Enter local username to deactivate").Trim()
                 if ([string]::IsNullOrWhiteSpace($user)) {
@@ -494,16 +516,16 @@ function Run-SystemToolsMenu {
                     } elseif ($lu.Name -eq $env:USERNAME) {
                         Write-Host "Refusing to disable the currently logged-in user." -ForegroundColor Yellow
                     } elseif ($lu.Name -in @('Administrator','Guest')) {
-                        $conf = Read-Host "Type CONFIRMBUILTIN to disable built-in account '$user'"
-                        if ($conf.ToUpper() -eq 'CONFIRMBUILTIN') {
+                        $conf = (Read-Host "Type CONFIRMBUILTIN to disable built-in account '$user'").ToUpper()
+                        if ($conf -eq 'CONFIRMBUILTIN') {
                             Disable-LocalUser -Name $user -ErrorAction Stop
                             Write-Host ("Built-in account '{0}' deactivated." -f $user) -ForegroundColor Green
                         } else {
                             Write-Host 'Cancelled.' -ForegroundColor Yellow
                         }
                     } else {
-                        $conf = Read-Host "Type DISABLE to confirm disabling '$user'"
-                        if ($conf.ToUpper() -eq 'DISABLE') {
+                        $conf = (Read-Host "Type DISABLE to confirm disabling '$user'").ToUpper()
+                        if ($conf -eq 'DISABLE') {
                             Disable-LocalUser -Name $user -ErrorAction Stop
                             Write-Host ("User '{0}' deactivated." -f $user) -ForegroundColor Green
                         } else {
@@ -515,7 +537,6 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
             '8' {
                 $user = (Read-Host "Enter local username to change password").Trim()
                 if ([string]::IsNullOrWhiteSpace($user)) {
@@ -530,8 +551,8 @@ function Run-SystemToolsMenu {
                     } else {
                         Write-Host "Enter new password for '$user':" -ForegroundColor Cyan
                         $pwd = Read-Host -AsSecureString
-                        $conf = Read-Host "Type PASSWORD to confirm changing password for '$user'"
-                        if ($conf.ToUpper() -eq 'PASSWORD') {
+                        $conf = (Read-Host "Type PASSWORD to confirm changing password for '$user'").ToUpper()
+                        if ($conf -eq 'PASSWORD') {
                             Set-LocalUser -Name $user -Password $pwd -ErrorAction Stop
                             Write-Host ("Password for '{0}' updated." -f $user) -ForegroundColor Green
                         } else {
@@ -543,14 +564,10 @@ function Run-SystemToolsMenu {
                 }
                 Pause-Return
             }
-
-            '9' {
-                Run-WindowsUpdateMenu
-            }
-
+            '9' { Run-WindowsUpdateMenu }
+            '10' { Run-DellUpdate }
             'M' { return }
             'Q' { $script:ExitRequested = $true; return }
-
             default {
                 if ($choice -ne '') {
                     Write-Host 'Unknown option.' -ForegroundColor Yellow
