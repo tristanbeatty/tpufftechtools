@@ -6,6 +6,11 @@
 Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/tpufftechtools/main/techtools.ps1) }"
 ```
 
+### One Liner GUI
+```
+Set-ExecutionPolicy Bypass -Scope Process -Force; iex "& { $(irm https://raw.githubusercontent.com/tristanbeatty/tpufftechtools/main/techtoolsgui.ps1) }"
+```
+
 ### Enable Script
 
 ```
